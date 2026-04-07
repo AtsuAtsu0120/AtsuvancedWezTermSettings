@@ -54,6 +54,12 @@ config.window_padding = {
   bottom = 8,
 }
 
+-- タブバーを常に表示（ステータスバーはここに表示される）
+config.enable_tab_bar = true
+config.hide_tab_bar_if_only_one_tab = false
+config.use_fancy_tab_bar = false
+config.tab_bar_at_bottom = true
+
 -- 非アクティブペインを暗く表示
 config.inactive_pane_hsb = {
   saturation = 0.9,
