@@ -10,7 +10,7 @@
 - macOS / Windows 両対応（同一設定ファイル）
 - 非アクティブペインの自動暗転でフォーカスを視覚化
 - スクロールバック50,000行（長大なAI出力に対応）
-- ステータスバーにGitブランチ + CWD表示
+- タブバーを画面下部に常時表示（Gitブランチ + CWD）
 
 ## キーバインド
 
@@ -42,8 +42,10 @@ macOSでは `CMD`、Windowsでは `ALT` がメインモディファイア。
 | 操作 | macOS | Windows |
 |---|---|---|
 | 新規タブ | `CMD+t` | `ALT+t` |
-| 次のタブ | `CMD+Shift+]` | `ALT+Shift+]` |
-| 前のタブ | `CMD+Shift+[` | `ALT+Shift+[` |
+| 次のタブ | `CTRL+Tab` | `CTRL+Tab` |
+| 前のタブ | `CTRL+Shift+Tab` | `CTRL+Shift+Tab` |
+| 次のタブ（別） | `CMD+Shift+]` | `ALT+Shift+]` |
+| 前のタブ（別） | `CMD+Shift+[` | `ALT+Shift+[` |
 | タブ番号で切替 | `CMD+1-9` | `ALT+1-9` |
 
 ## 使い方の例
