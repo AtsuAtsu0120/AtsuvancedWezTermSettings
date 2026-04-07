@@ -94,6 +94,8 @@ config.keys = {
   { key = 't', mods = mod, action = act.SpawnTab('CurrentPaneDomain') },
   { key = ']', mods = mod_shift, action = act.ActivateTabRelative(1) },
   { key = '[', mods = mod_shift, action = act.ActivateTabRelative(-1) },
+  { key = 'Tab', mods = 'CTRL', action = act.ActivateTabRelative(1) },
+  { key = 'Tab', mods = 'CTRL|SHIFT', action = act.ActivateTabRelative(-1) },
 
   -- クイックレイアウト: 2分割（左右）
   { key = '2', mods = 'CTRL|SHIFT', action = act.Multiple({
