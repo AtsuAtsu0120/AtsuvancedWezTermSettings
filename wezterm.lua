@@ -199,7 +199,7 @@ end
 
 config.initial_cols = 200
 config.initial_rows = 60
-config.window_decorations = 'RESIZE'
+config.window_decorations = 'TITLE | RESIZE'
 config.window_background_opacity = 0.95
 config.adjust_window_size_when_changing_font_size = false
 
