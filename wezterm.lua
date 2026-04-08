@@ -9,10 +9,160 @@ local config = wezterm.config_builder()
 
 local is_macos = wezterm.target_triple:find('apple') ~= nil
 local is_windows = wezterm.target_triple:find('windows') ~= nil
+local homebrew_bin = '/opt/homebrew/bin'
 
 -- macOS: CMD / Windows: ALT をメインモディファイアとして使用
 local mod = is_macos and 'CMD' or 'ALT'
 local mod_shift = mod .. '|SHIFT'
+
+-- ============================================
+-- 開発リポジトリ一括切替
+-- ============================================
+
+local function shell_quote(value)
+  return "'" .. value:gsub("'", [['"'"']]) .. "'"
+end
+
+local function basename(path)
+  if not path or path == '' then
+    return ''
+  end
+
+  return path:gsub('(.*[/\\])(.*)', '%2')
+end
+
+local function is_shell_process(process_name)
+  if not process_name or process_name == '' then
+    return true
+  end
+
+  local name = basename(process_name):lower()
+  local shell_names = {
+    ['sh'] = true,
+    ['bash'] = true,
+    ['zsh'] = true,
+    ['fish'] = true,
+    ['nu'] = true,
+    ['pwsh'] = true,
+    ['powershell'] = true,
+    ['cmd.exe'] = true,
+  }
+
+  return shell_names[name] == true
+end
+
+local function get_repo_choices()
+  local ghq_cmd = is_macos and homebrew_bin .. '/ghq' or 'ghq'
+  local root_ok, root_stdout, root_stderr = wezterm.run_child_process({ ghq_cmd, 'root' })
+  if not root_ok then
+    local message = root_stderr ~= '' and root_stderr:gsub('%s+$', '') or 'ghq root の取得に失敗'
+    return nil, message
+  end
+
+  local list_ok, list_stdout, list_stderr = wezterm.run_child_process({ ghq_cmd, 'list' })
+  if not list_ok then
+    local message = list_stderr ~= '' and list_stderr:gsub('%s+$', '') or 'ghq list の取得に失敗'
+    return nil, message
+  end
+
+  local root = root_stdout:gsub('%s+$', '')
+  local choices = {}
+  for repo in list_stdout:gmatch('[^\r\n]+') do
+    local trimmed = repo:gsub('^%s+', ''):gsub('%s+$', '')
+    if trimmed ~= '' then
+      table.insert(choices, {
+        id = root .. '/' .. trimmed,
+        label = trimmed,
+      })
+    end
+  end
+
+  if #choices == 0 then
+    return nil, 'ghq 管理下のリポジトリが見つからない'
+  end
+
+  return choices, nil
+end
+
+local function show_repo_switch_result(window, label, changed, skipped)
+  local message
+  if changed == 0 then
+    message = '切替対象のシェルペインなし'
+  elseif skipped == 0 then
+    message = '全シェルペインを ' .. label .. ' に切替'
+  else
+    message = string.format('%dペイン切替 / %dペインは送信対象外', changed, skipped)
+  end
+
+  window:toast_notification('WezTerm', message, nil, 2500)
+end
+
+local function broadcast_cd_to_active_tab(window, path)
+  local mux_window = window:mux_window()
+  if not mux_window then
+    return 0, 0
+  end
+
+  local active_tab = mux_window:active_tab()
+  if not active_tab then
+    return 0, 0
+  end
+
+  local command = 'cd -- ' .. shell_quote(path) .. ' && clear\n'
+  local changed = 0
+  local skipped = 0
+  for _, pane_info in ipairs(active_tab:panes_with_info()) do
+    local process_name = pane_info.pane:get_foreground_process_name()
+    if pane_info.is_alt_screen_active or not is_shell_process(process_name) then
+      skipped = skipped + 1
+    else
+      window:perform_action(act.SendString(command), pane_info.pane)
+      changed = changed + 1
+    end
+  end
+
+  return changed, skipped
+end
+
+local function relayout_current_tab(window, pane, layout)
+  local tab = pane:tab()
+  if not tab then
+    return
+  end
+
+  local active_pane = pane
+  local extra_panes = {}
+  for _, pane_info in ipairs(tab:panes_with_info()) do
+    if pane_info.pane:pane_id() ~= active_pane:pane_id() then
+      table.insert(extra_panes, pane_info.pane)
+    end
+  end
+
+  for _, extra_pane in ipairs(extra_panes) do
+    extra_pane:activate()
+    window:perform_action(act.CloseCurrentPane({ confirm = false }), extra_pane)
+  end
+
+  active_pane:activate()
+
+  if layout == 2 then
+    active_pane:split({ direction = 'Right', size = 0.5 })
+    return
+  end
+
+  if layout == 3 then
+    local second_pane = active_pane:split({ direction = 'Right', size = 0.5 })
+    active_pane:split({ direction = 'Right', size = 0.5 })
+    second_pane:activate()
+    return
+  end
+
+  if layout == 4 then
+    local right_pane = active_pane:split({ direction = 'Right', size = 0.5 })
+    active_pane:split({ direction = 'Bottom', size = 0.5 })
+    right_pane:split({ direction = 'Bottom', size = 0.5 })
+  end
+end
 
 -- ============================================
 -- 基本設定
@@ -31,9 +181,15 @@ config.scrollback_lines = 50000
 config.use_ime = true
 config.audible_bell = 'Disabled'
 
+if is_macos then
+  config.set_environment_variables = {
+    PATH = homebrew_bin .. ':' .. (os.getenv('PATH') or ''),
+  }
+end
+
 -- macOS固有設定
 if is_macos then
-  config.macos_forward_to_ime_modifier_mask = 'SHIFT|CTRL'
+  config.macos_forward_to_ime_modifier_mask = 'SHIFT'
   config.macos_window_background_blur = 20
 end
 
@@ -96,28 +252,32 @@ config.keys = {
   { key = '[', mods = mod_shift, action = act.ActivateTabRelative(-1) },
   { key = 'Tab', mods = 'CTRL', action = act.ActivateTabRelative(1) },
   { key = 'Tab', mods = 'CTRL|SHIFT', action = act.ActivateTabRelative(-1) },
+  { key = 'w', mods = 'CTRL|SHIFT', action = act.EmitEvent('choose-dev-repo-for-tab') },
+  { key = 'w', mods = 'CTRL|ALT', action = act.EmitEvent('choose-dev-repo-for-tab') },
 
   -- クイックレイアウト: 2分割（左右）
-  { key = '2', mods = 'CTRL|SHIFT', action = act.Multiple({
-    act.SpawnTab('CurrentPaneDomain'),
-    act.SplitHorizontal({ domain = 'CurrentPaneDomain' }),
-  }) },
+  { key = '2', mods = 'CTRL|SHIFT', action = wezterm.action_callback(function(window, pane)
+    relayout_current_tab(window, pane, 2)
+  end) },
+  { key = '2', mods = 'CTRL|ALT', action = wezterm.action_callback(function(window, pane)
+    relayout_current_tab(window, pane, 2)
+  end) },
 
   -- クイックレイアウト: 3分割（左中右）
-  { key = '3', mods = 'CTRL|SHIFT', action = act.Multiple({
-    act.SpawnTab('CurrentPaneDomain'),
-    act.SplitHorizontal({ domain = 'CurrentPaneDomain' }),
-    act.SplitHorizontal({ domain = 'CurrentPaneDomain' }),
-  }) },
+  { key = '3', mods = 'CTRL|SHIFT', action = wezterm.action_callback(function(window, pane)
+    relayout_current_tab(window, pane, 3)
+  end) },
+  { key = '3', mods = 'CTRL|ALT', action = wezterm.action_callback(function(window, pane)
+    relayout_current_tab(window, pane, 3)
+  end) },
 
   -- クイックレイアウト: 4分割（2×2グリッド）
-  { key = '4', mods = 'CTRL|SHIFT', action = act.Multiple({
-    act.SpawnTab('CurrentPaneDomain'),
-    act.SplitHorizontal({ domain = 'CurrentPaneDomain' }),
-    act.SplitVertical({ domain = 'CurrentPaneDomain' }),
-    act.ActivatePaneDirection('Left'),
-    act.SplitVertical({ domain = 'CurrentPaneDomain' }),
-  }) },
+  { key = '4', mods = 'CTRL|SHIFT', action = wezterm.action_callback(function(window, pane)
+    relayout_current_tab(window, pane, 4)
+  end) },
+  { key = '4', mods = 'CTRL|ALT', action = wezterm.action_callback(function(window, pane)
+    relayout_current_tab(window, pane, 4)
+  end) },
 }
 
 -- Windowsではペイン移動にCTRL+ALT+矢印を使用（ALT+ALTは不可のため）
@@ -183,6 +343,32 @@ wezterm.on('update-right-status', function(window, pane)
   end
 
   window:set_right_status(table.concat(status_parts, '  '))
+end)
+
+wezterm.on('choose-dev-repo-for-tab', function(window, pane)
+  local choices, err = get_repo_choices()
+  if not choices then
+    window:toast_notification('WezTerm', err, nil, 4000)
+    return
+  end
+
+  window:perform_action(
+    act.InputSelector({
+      title = 'Switch Repos For All Panes',
+      description = '現在のタブ内の全ペインを同じリポジトリへ移動',
+      fuzzy = true,
+      choices = choices,
+      action = wezterm.action_callback(function(inner_window, _, id, label)
+        if not id then
+          return
+        end
+
+        local changed, skipped = broadcast_cd_to_active_tab(inner_window, id)
+        show_repo_switch_result(inner_window, label, changed, skipped)
+      end),
+    }),
+    pane
+  )
 end)
 
 -- ============================================
