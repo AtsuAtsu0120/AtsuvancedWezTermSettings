@@ -199,7 +199,7 @@ end
 
 config.initial_cols = 200
 config.initial_rows = 60
-config.window_decorations = 'TITLE | RESIZE'
+config.window_decorations = 'INTEGRATED_BUTTONS | RESIZE'
 config.window_background_opacity = 0.95
 config.adjust_window_size_when_changing_font_size = false
 
@@ -213,8 +213,9 @@ config.window_padding = {
 -- タブバーを常に表示（ステータスバーはここに表示される）
 config.enable_tab_bar = true
 config.hide_tab_bar_if_only_one_tab = false
-config.use_fancy_tab_bar = false
-config.tab_bar_at_bottom = true
+config.use_fancy_tab_bar = true
+config.tab_bar_at_bottom = false
+config.show_close_tab_button_in_tabs = true
 
 -- 非アクティブペインを暗く表示
 config.inactive_pane_hsb = {
