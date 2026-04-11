@@ -108,7 +108,7 @@ local function broadcast_cd_to_active_tab(window, path)
     return 0, 0
   end
 
-  local command = 'cd -- ' .. shell_quote(path) .. ' && clear\n'
+  local command = 'cd -- ' .. shell_quote(path) .. '\n'
   local changed = 0
   local skipped = 0
   for _, pane_info in ipairs(active_tab:panes_with_info()) do
@@ -117,6 +117,7 @@ local function broadcast_cd_to_active_tab(window, path)
       skipped = skipped + 1
     else
       window:perform_action(act.SendString(command), pane_info.pane)
+      window:perform_action(act.SendKey({ key = 'l', mods = 'CTRL' }), pane_info.pane)
       changed = changed + 1
     end
   end
