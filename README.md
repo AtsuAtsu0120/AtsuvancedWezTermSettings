@@ -65,8 +65,8 @@ WezTermを起動するだけ。自動で左右2ペインになる。
 
 `CTRL+W` は従来どおり、そのペインだけで `ghq` 一覧を開く。
 
-`CTRL+Shift+W` または `CTRL+ALT+W` は WezTerm 側の一覧を開き、現在タブ内のシェル待機中ペインへ同じ `cd && clear` を送る。
-Codex などシェル以外が前面にいるペインや、alt screen 利用中のペインには送らない。
+`CTRL+Shift+W` または `CTRL+ALT+W` は WezTerm 側の一覧を開き、現在タブ内のシェル待機中ペインへ同じ `cd` と再描画を送る。
+Codex などシェル以外が前面にいるペイン、`fzf` や `lazygit` などの対話 UI を開いているペイン、alt screen 利用中のペインには送らない。
 
 ## 前提
 

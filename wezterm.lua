@@ -51,6 +51,73 @@ local function is_shell_process(process_name)
   return shell_names[name] == true
 end
 
+local function is_interactive_tui_process(process_name)
+  if not process_name or process_name == '' then
+    return false
+  end
+
+  local name = basename(process_name):lower()
+  local tui_names = {
+    ['fzf'] = true,
+    ['sk'] = true,
+    ['lazygit'] = true,
+    ['gitui'] = true,
+    ['tig'] = true,
+    ['btop'] = true,
+    ['htop'] = true,
+    ['top'] = true,
+    ['less'] = true,
+    ['more'] = true,
+    ['man'] = true,
+    ['vim'] = true,
+    ['nvim'] = true,
+  }
+
+  return tui_names[name] == true
+end
+
+local function process_info_name(info)
+  if not info then
+    return ''
+  end
+
+  if info.executable and info.executable ~= '' then
+    return basename(info.executable):lower()
+  end
+
+  if info.name and info.name ~= '' then
+    return info.name:lower()
+  end
+
+  if info.argv and info.argv[1] and info.argv[1] ~= '' then
+    return basename(info.argv[1]):lower()
+  end
+
+  return ''
+end
+
+local function process_tree_contains_interactive_tui(info)
+  if not info then
+    return false
+  end
+
+  if is_interactive_tui_process(process_info_name(info)) then
+    return true
+  end
+
+  if not info.children then
+    return false
+  end
+
+  for _, child in pairs(info.children) do
+    if process_tree_contains_interactive_tui(child) then
+      return true
+    end
+  end
+
+  return false
+end
+
 local function get_repo_choices()
   local ghq_cmd = is_macos and homebrew_bin .. '/ghq' or 'ghq'
   local root_ok, root_stdout, root_stderr = wezterm.run_child_process({ ghq_cmd, 'root' })
@@ -112,8 +179,13 @@ local function broadcast_cd_to_active_tab(window, path)
   local changed = 0
   local skipped = 0
   for _, pane_info in ipairs(active_tab:panes_with_info()) do
+    local process_info = pane_info.pane:get_foreground_process_info()
     local process_name = pane_info.pane:get_foreground_process_name()
-    if pane_info.is_alt_screen_active or not is_shell_process(process_name) then
+    if pane_info.is_alt_screen_active
+      or process_tree_contains_interactive_tui(process_info)
+      or is_interactive_tui_process(process_name)
+      or not is_shell_process(process_name)
+    then
       skipped = skipped + 1
     else
       window:perform_action(act.SendString(command), pane_info.pane)
