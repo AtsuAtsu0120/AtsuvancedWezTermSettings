@@ -216,7 +216,6 @@ config.enable_tab_bar = true
 config.hide_tab_bar_if_only_one_tab = false
 config.use_fancy_tab_bar = true
 config.tab_bar_at_bottom = false
-config.show_close_tab_button_in_tabs = true
 
 -- 非アクティブペインを暗く表示
 config.inactive_pane_hsb = {
