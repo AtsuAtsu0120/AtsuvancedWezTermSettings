@@ -160,8 +160,8 @@ local function relayout_current_tab(window, pane, layout)
 
   if layout == 4 then
     local right_pane = active_pane:split({ direction = 'Right', size = 0.5 })
-    active_pane:split({ direction = 'Bottom', size = 0.5 })
-    right_pane:split({ direction = 'Bottom', size = 0.5 })
+    active_pane:split({ direction = 'Top', size = 0.2 })
+    right_pane:split({ direction = 'Top', size = 0.2 })
   end
 end
 
