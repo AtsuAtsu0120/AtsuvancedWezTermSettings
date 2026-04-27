@@ -232,8 +232,8 @@ local function relayout_current_tab(window, pane, layout)
 
   if layout == 4 then
     local right_pane = active_pane:split({ direction = 'Right', size = 0.5 })
-    active_pane:split({ direction = 'Bottom', size = 0.5 })
-    right_pane:split({ direction = 'Bottom', size = 0.5 })
+    active_pane:split({ direction = 'Top', size = 0.2 })
+    right_pane:split({ direction = 'Top', size = 0.2 })
   end
 end
 
@@ -288,7 +288,6 @@ config.enable_tab_bar = true
 config.hide_tab_bar_if_only_one_tab = false
 config.use_fancy_tab_bar = true
 config.tab_bar_at_bottom = false
-config.show_close_tab_button_in_tabs = true
 
 -- 非アクティブペインを暗く表示
 config.inactive_pane_hsb = {
