@@ -9,6 +9,7 @@
 - 起動時に自動で左右2ペイン分割 + ウィンドウ最大化
 - `CTRL+Shift+W` で現在タブ内の全ペインを同じ開発リポジトリへ一括切替
 - macOS / Windows 両対応（同一設定ファイル）
+- Windowsではデフォルトシェルをcmd.exeではなくPowerShell（pwsh優先・無ければWindows PowerShell）で起動
 - 非アクティブペインの自動暗転でフォーカスを視覚化
 - スクロールバック50,000行（長大なAI出力に対応）
 - タブバーを画面下部に常時表示（Gitブランチ + CWD）
@@ -72,3 +73,5 @@ Codex などシェル以外が前面にいるペイン、`fzf` や `lazygit` な
 
 - フォント: [JetBrains Mono](https://www.jetbrains.com/lp/mono/)（未インストールの場合はMenlo/Consolasにフォールバック）
 - カラースキーム: Catppuccin Mocha（WezTerm内蔵）
+- Windows: 標準シェルとして PowerShell 7 (`pwsh.exe`) があれば優先利用。無い場合は同梱の Windows PowerShell (`powershell.exe`) を使用
+- ステータスバーのGitブランチ表示はcwd単位でキャッシュ（5秒TTL）。多ペイン時でもGUIがブロックされない

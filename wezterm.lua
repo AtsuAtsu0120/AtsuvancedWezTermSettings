@@ -20,6 +20,10 @@ local mod_shift = mod .. '|SHIFT'
 -- ============================================
 
 local function shell_quote(value)
+  -- Windows(PowerShell)はシングルクォートを '' でエスケープ、POSIXシェルは '"'"'
+  if is_windows then
+    return "'" .. value:gsub("'", "''") .. "'"
+  end
   return "'" .. value:gsub("'", [['"'"']]) .. "'"
 end
 
@@ -36,7 +40,8 @@ local function is_shell_process(process_name)
     return true
   end
 
-  local name = basename(process_name):lower()
+  -- Windowsのプロセス名には .exe が付くため除去して判定
+  local name = basename(process_name):lower():gsub('%.exe$', '')
   local shell_names = {
     ['sh'] = true,
     ['bash'] = true,
@@ -45,7 +50,7 @@ local function is_shell_process(process_name)
     ['nu'] = true,
     ['pwsh'] = true,
     ['powershell'] = true,
-    ['cmd.exe'] = true,
+    ['cmd'] = true,
   }
 
   return shell_names[name] == true
@@ -56,7 +61,7 @@ local function is_interactive_tui_process(process_name)
     return false
   end
 
-  local name = basename(process_name):lower()
+  local name = basename(process_name):lower():gsub('%.exe$', '')
   local tui_names = {
     ['fzf'] = true,
     ['sk'] = true,
@@ -175,7 +180,13 @@ local function broadcast_cd_to_active_tab(window, path)
     return 0, 0
   end
 
-  local command = 'cd -- ' .. shell_quote(path) .. '\n'
+  -- Windows(PowerShell)は Set-Location、POSIXシェルは cd を使用
+  local command
+  if is_windows then
+    command = 'Set-Location -LiteralPath ' .. shell_quote(path) .. '\r'
+  else
+    command = 'cd -- ' .. shell_quote(path) .. '\n'
+  end
   local changed = 0
   local skipped = 0
   for _, pane_info in ipairs(active_tab:panes_with_info()) do
@@ -264,6 +275,17 @@ end
 if is_macos then
   config.macos_forward_to_ime_modifier_mask = 'SHIFT'
   config.macos_window_background_blur = 20
+end
+
+-- Windows固有設定: デフォルトシェルをPowerShellにする（既定のcmd.exeを回避）
+-- PowerShell 7 (pwsh) を優先し、無ければ同梱のWindows PowerShellにフォールバック
+if is_windows then
+  local pwsh_ok = wezterm.run_child_process({ 'where', 'pwsh.exe' })
+  if pwsh_ok then
+    config.default_prog = { 'pwsh.exe', '-NoLogo' }
+  else
+    config.default_prog = { 'powershell.exe', '-NoLogo' }
+  end
 end
 
 -- ============================================
@@ -380,6 +402,37 @@ end
 -- ステータスバー（CWD + Gitブランチ）
 -- ============================================
 
+-- Gitブランチはcwd単位でキャッシュ（TTL付き）。
+-- update-right-status は頻繁に呼ばれるため、毎回 git を同期実行すると
+-- 特にWindowsではGUIスレッドがブロックされ「応答なし」になる。
+local git_branch_cache = {}
+local GIT_BRANCH_TTL = 5 -- 秒
+
+local function get_git_branch(cwd_path)
+  if not cwd_path or cwd_path == '' or cwd_path == '.' then
+    return ''
+  end
+
+  local now = os.time()
+  local cached = git_branch_cache[cwd_path]
+  if cached and (now - cached.time) < GIT_BRANCH_TTL then
+    return cached.branch
+  end
+
+  local git_cmd = is_macos and homebrew_bin .. '/git' or 'git'
+  local success, stdout = wezterm.run_child_process({
+    git_cmd, '-C', cwd_path, 'rev-parse', '--abbrev-ref', 'HEAD',
+  })
+
+  local branch = ''
+  if success then
+    branch = stdout:gsub('%s+$', '')
+  end
+
+  git_branch_cache[cwd_path] = { branch = branch, time = now }
+  return branch
+end
+
 wezterm.on('update-right-status', function(window, pane)
   local cwd = ''
   local cwd_path = '.'
@@ -392,14 +445,8 @@ wezterm.on('update-right-status', function(window, pane)
     end
   end
 
-  -- Gitブランチ取得
-  local git_branch = ''
-  local success, stdout, _ = wezterm.run_child_process({
-    'git', '-C', cwd_path, 'rev-parse', '--abbrev-ref', 'HEAD',
-  })
-  if success then
-    git_branch = stdout:gsub('%s+$', '')
-  end
+  -- Gitブランチ取得（キャッシュ経由）
+  local git_branch = get_git_branch(cwd_path)
 
   local status_parts = {}
   if git_branch ~= '' then
