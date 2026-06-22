@@ -277,15 +277,28 @@ if is_macos then
   config.macos_window_background_blur = 20
 end
 
+-- Windows固有設定: WSL自動検出を無効化（起動時に wsl.exe -l -v を実行するためウィンドウ生成前にハングする）
+if is_windows then
+  config.wsl_domains = {}
+end
+
 -- Windows固有設定: デフォルトシェルをPowerShellにする（既定のcmd.exeを回避）
 -- PowerShell 7 (pwsh) を優先し、無ければ同梱のWindows PowerShellにフォールバック
+-- WindowsApps はリパースポイントのため io.open が OS をブロックする場合がある。
+-- Program Files の実体パスのみ確認し、それ以外は powershell.exe にフォールバック。
 if is_windows then
-  local pwsh_ok = wezterm.run_child_process({ 'where', 'pwsh.exe' })
-  if pwsh_ok then
-    config.default_prog = { 'pwsh.exe', '-NoLogo' }
-  else
-    config.default_prog = { 'powershell.exe', '-NoLogo' }
+  local function pwsh_exists()
+    local candidates = {
+      'C:\\Program Files\\PowerShell\\7\\pwsh.exe',
+      'C:\\Program Files\\PowerShell\\7-preview\\pwsh.exe',
+    }
+    for _, p in ipairs(candidates) do
+      local f = io.open(p, 'rb')
+      if f then f:close(); return true end
+    end
+    return false
   end
+  config.default_prog = { pwsh_exists() and 'pwsh.exe' or 'powershell.exe', '-NoLogo' }
 end
 
 -- ============================================
